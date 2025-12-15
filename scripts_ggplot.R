@@ -74,7 +74,7 @@ ggplot(sp.cor, aes(x = comp1, y = comp2)) +
 #-------------------------------------------------------------------------------
 
 cm1 <- coxph(Surv(time.reach6.y, event) ~  
-               Sex + Onset age (years) + First relapse + OCB + Rituximab, 
+               Sex + Onset age (years) + First_relapse + OCB + Rituximab, 
              data = xx1)
 
 # Tidy the model results using broom
@@ -127,3 +127,72 @@ col_names <- c(
 # replace by the categorical variables you want to trnafrom into factors
 
 data[, col_names] <- lapply(data[, col_names], factor)
+
+#-------------------------------------------------------------------------------
+# ggalluvial
+#-------------------------------------------------------------------------------
+
+dat_traj %>% 
+  dplyr::filter(Study == "study5") %>% 
+  ggplot(aes(x = Genotype, y = percent, fill = trajectories))+
+  geom_flow(aes(alluvium = trajectories), alpha= .9, 
+            lty = 2, fill = "white", color = "black",
+            curve_type = "linear", 
+            width = .6) +
+  geom_bar(stat = "identity", col = "black", width = 0.6)+
+  #geom_col(aes(fill = trajectories), width = .5, color = "black") +
+  geom_text(data = dat_traj %>% 
+              dplyr::filter(Study == "study5" & percent!=0),
+            aes(label = paste0(round(percent,0),"%")), 
+            position = position_stack(vjust =  0.5),
+            size = 4, col = "black")+
+  theme_minimal()+
+  theme(axis.text = element_text(color = "black"),
+        panel.grid.major.x = element_blank(),
+        legend.position = "bottom")+
+  facet_wrap(~ Stage, nrow = 2)+
+  labs(x = "",
+       y = "Overall search strategies (%)")+
+  scale_y_continuous(breaks = seq(0, 100, by = 10),
+                     minor_breaks = seq(0, 100, by = 10))+
+  scale_fill_manual(values = c(Chaining = "#BDD7E7",
+                               Scanning = "#6BAED6",
+                               Thigmotaxis = "#2171B5",
+                               Random.search = "#08519C",
+                               Direct.swim = "#BAE4B3",
+                               Focal.search = "#74C476",
+                               Direct.search = "#31A354",
+                               Not.rec = "grey75"))
+
+#-------------------------------------------------------------------------------
+# area plot
+#-------------------------------------------------------------------------------
+
+dat_traj %>% 
+  dplyr::filter(Study == "study5") %>%
+  dplyr::group_by(Genotype, Stage, trajectories) %>%
+  dplyr::summarise(percent = sum(percent, na.rm = TRUE)) %>%
+  ggplot(aes(x = Stage, y = percent, fill = trajectories, group = trajectories)) +
+  geom_area(position = "stack", show.legend = TRUE, col = "black")+
+  facet_wrap(~ Genotype)+
+  # geom_vline(data = dat_traj %>% dplyr::filter(Study == "study1" & Genotype == "Ctrl"), aes(xintercept = 5), col = "black", linetype = "dashed")+
+  theme_minimal()+
+  theme(axis.text = element_text(color = "black"),
+        panel.grid = element_blank(),
+        panel.margin = unit(1, "lines"))+
+  labs(x = "",
+       y = "Overall search strategies (%)")+
+  scale_y_continuous(breaks = seq(0, 100, by = 10),
+                     minor_breaks = seq(0, 100, by = 10),
+                     expand = c(0,0))+
+  scale_x_discrete(breaks = c("J1", "J2", "J3", "J4", "J5",
+                              "J1(R)", "J2(R)", "J3(R)", "J4(R)", "J5(R)"),
+                   expand = c(0,0))+
+  scale_fill_manual(values = c(Chaining = "#BDD7E7",
+                               Scanning = "#6BAED6",
+                               Thigmotaxis = "#2171B5",
+                               Random.search = "#08519C",
+                               Direct.swim = "#BAE4B3",
+                               Focal.search = "#74C476",
+                               Direct.search = "#31A354",
+                               Not.rec = "grey75"))
