@@ -1,6 +1,7 @@
 library(tidyverse)
 library(ggplot2)
 library(ggpubr)
+library(ggrepel)
 
 #-------------------------------------------------------------------------------
 # Histogram with chi-square or fisher exact test
@@ -27,7 +28,7 @@ data %>%
   scale_fill_manual(values = c("#5F9EA0", "#E1B378"))
 
 #-------------------------------------------------------------------------------
-# cercle des corrélations
+# correlations circle
 #-------------------------------------------------------------------------------
 
 circleFun <- function(center = c(-1,1), diameter = 1, npoints = 100) {
@@ -67,3 +68,62 @@ ggplot(sp.cor, aes(x = comp1, y = comp2)) +
   scale_color_manual(values=c("darkred", "dodgerblue4", "springgreen4")) +
   scale_fill_manual(values=c("darkred", "dodgerblue4", "springgreen4")) +
   guides(color = guide_legend(override.aes = list(size = 3)))
+
+#-------------------------------------------------------------------------------
+# Forest Plot
+#-------------------------------------------------------------------------------
+
+cm1 <- coxph(Surv(time.reach6.y, event) ~  
+               Sex + Onset age (years) + First relapse + OCB + Rituximab, 
+             data = xx1)
+
+# Tidy the model results using broom
+model_res1 <- tidy(cm1, conf.int = TRUE)
+
+# Add a new column for HR and round for readability
+model_res1$HR <- exp(model_res1$estimate)
+model_res1$HR <- round(model_res1$HR, 3)
+model_res1$conf.low <- round(exp(model_res1$conf.low), 3)
+model_res1$conf.high <- round(exp(model_res1$conf.high), 3)
+model_res1$p_value <- summary(cm1)$coefficients[, "Pr(>|z|)"] 
+
+# Create the forest plot using ggplot2 and add HR and CI text annotations
+model_res1$significance <- ifelse(model_res1 $p_value < 0.001, "*",
+                                  ifelse(model_res1$p_value < 0.01, "", 
+                                         ifelse(model_res1$p_value < 0.05, "*", "")))
+
+model_res1$HRstar <- paste0(model_res1$HR, model_res1$significance)
+
+FP1 <- ggplot(model_res1, aes(x = term, y = HR, ymin = conf.low, ymax = conf.high)) +
+  geom_pointrange(size = .1, linewidth = .3) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "red", linewidth = .3) +
+  coord_flip() +
+  xlab("Variable") +
+  ylab("Hazard Ratio (95% CI)") +
+  ggtitle("Cox PH model for time to reach EDSS 6 in AQP4+") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 5, color = "black"), 
+    axis.text.y = element_text(size = 5, color = "black"), 
+    axis.title.y = element_blank(),
+    plot.title = element_text(size = 5),
+    axis.title.x = element_text(size = 5),
+    panel.grid = element_line(linewidth = .2)
+  ) +
+  geom_text(aes(label = paste0("HR = ", HRstar, "\n(", conf.low, ", ", conf.high, ")")),
+            position = position_dodge(width = 1), 
+            hjust = -0.2, size = 1.6)  +
+  scale_y_continuous(breaks = seq(-1, 12, 1), minor_breaks = seq(-1, 12, 1))
+
+#-------------------------------------------------------------------------------
+# to transform all categorical variables to factor
+#-------------------------------------------------------------------------------
+
+col_names <- c(
+  "agreement_silver_MRI_Stephane", "agreement_silver_MRIandV1_Stephane", "agreement_silver_MRI_Goncalo",
+  "agreement_silver_MRIandV1_Goncalo", "Interrateragreement_MRI", "Interrateragreement_MRIandV1",
+  "agreement_silver_ML", "agreement_MRI_ML"
+)
+# replace by the categorical variables you want to trnafrom into factors
+
+data[, col_names] <- lapply(data[, col_names], factor)
